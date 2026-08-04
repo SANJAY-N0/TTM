@@ -1,0 +1,22 @@
+{
+  "short_name": "TimeToMeal",
+  "name": "TimeToMeal Hostel Canteen",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/192/000000/restaurant-menu.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://img.icons8.com/color/512/000000/restaurant-menu.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#e14b18",
+  "display": "standalone",
+  "orientation": "portrait",
+  "description": "Premium Hostel Canteen POS Application"
+}

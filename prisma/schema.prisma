@@ -1,0 +1,238 @@
+// Prisma Schema for Campus Canteen SaaS (Production V1 MVP)
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  CANTEEN
+  SUPER_ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CASHFREE
+  RAZORPAY
+  PHONEPE
+  GOOGLE_PAY
+  PAYTM
+  UPI_QR
+  CREDIT_CARD
+  DEBIT_CARD
+  NET_BANKING
+}
+
+// 1. Users Table (Student, Canteen Staff, Super Admin)
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  password_hash    String
+  name             String
+  phone            String?
+  roll_number      String?   @unique
+  role             Role      @default(STUDENT)
+  status           String    @default("ACTIVE") // ACTIVE, SUSPENDED, PENDING_VERIFICATION
+  college_id       String?
+  college          College?  @relation(fields: [college_id], references: [id], onDelete: SetNull)
+  canteen_id       String?
+  canteen          Canteen?  @relation(fields: [canteen_id], references: [id], onDelete: SetNull)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  orders           Order[]   @relation("StudentOrders")
+
+  @@index([email])
+  @@index([role])
+  @@index([college_id])
+  @@index([canteen_id])
+  @@map("users")
+}
+
+// 2. Colleges Table
+model College {
+  id             String    @id @default(uuid())
+  name           String
+  code           String    @unique
+  address        String
+  city           String
+  state          String
+  contact_person String?
+  email          String?
+  phone          String?
+  status         String    @default("ACTIVE")
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  users          User[]
+  canteens       Canteen[]
+
+  @@index([code])
+  @@map("colleges")
+}
+
+// 3. Canteens Table
+model Canteen {
+  id             String    @id @default(uuid())
+  name           String
+  location       String
+  contact_phone  String?
+  is_online      Boolean   @default(true)
+  status         String    @default("ACTIVE")
+  college_id     String
+  college        College   @relation(fields: [college_id], references: [id], onDelete: Cascade)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  staff_users    User[]
+  meals          Meal[]
+  orders         Order[]
+
+  @@index([college_id])
+  @@map("canteens")
+}
+
+// 4. Meals Table (Menu Items)
+model Meal {
+  id             String      @id @default(uuid())
+  canteen_id     String
+  canteen        Canteen     @relation(fields: [canteen_id], references: [id], onDelete: Cascade)
+  item_name      String
+  category       String      @default("General")
+  price          Float
+  discount_price Float?
+  image_url      String?
+  is_veg         Boolean     @default(true)
+  is_available   Boolean     @default(true)
+  stock_online   Int         @default(100)
+  stock_offline  Int         @default(100)
+  prep_time_mins Int         @default(10)
+  status         String      @default("ACTIVE")
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @updatedAt
+
+  order_items    OrderItem[]
+
+  @@index([canteen_id])
+  @@index([category])
+  @@map("meals")
+}
+
+// 5. Orders Table
+model Order {
+  id                 String        @id @default(uuid())
+  order_code         String        @unique
+  student_id         String
+  student            User          @relation("StudentOrders", fields: [student_id], references: [id], onDelete: Cascade)
+  canteen_id         String
+  canteen            Canteen       @relation(fields: [canteen_id], references: [id], onDelete: Cascade)
+  total_amount       Float
+  paid_amount        Float         @default(0)
+  payment_method     PaymentMethod @default(UPI_QR)
+  payment_status     PaymentStatus @default(PENDING)
+  order_status       OrderStatus   @default(PENDING)
+  cashfree_order_id  String?       @unique
+  cashfree_payment_id String?
+  status             String        @default("ACTIVE")
+  created_at         DateTime      @default(now())
+  updated_at         DateTime      @updatedAt
+
+  order_items        OrderItem[]
+  payments           Payment[]
+
+  @@index([student_id])
+  @@index([canteen_id])
+  @@index([order_status])
+  @@index([cashfree_order_id])
+  @@map("orders")
+}
+
+// 6. Order Items Table
+model OrderItem {
+  id             String    @id @default(uuid())
+  order_id       String
+  order          Order     @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  meal_id        String
+  meal           Meal      @relation(fields: [meal_id], references: [id], onDelete: Restrict)
+  item_name      String
+  quantity       Int
+  price_per_unit Float
+  total_price    Float
+  status         String    @default("ACTIVE")
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  @@index([order_id])
+  @@index([meal_id])
+  @@map("order_items")
+}
+
+// 7. Payments Table
+model Payment {
+  id                  String        @id @default(uuid())
+  order_id            String
+  order               Order         @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  transaction_id      String        @unique
+  payment_gateway     String        @default("Cashfree")
+  payment_method      PaymentMethod @default(UPI_QR)
+  amount              Float
+  currency            String        @default("INR")
+  payment_status      PaymentStatus @default(PENDING)
+  gateway_response    String?
+  status              String        @default("ACTIVE")
+  created_at          DateTime      @default(now())
+  updated_at          DateTime      @updatedAt
+
+  @@index([order_id])
+  @@index([transaction_id])
+  @@map("payments")
+}
+
+// 8. Settings Table (Global & Portal Configurations)
+model Setting {
+  id             String    @id @default(uuid())
+  key            String    @unique
+  value          String
+  category       String    @default("GENERAL") // GENERAL, PAYMENTS, NOTIFICATIONS, SECURITY
+  description    String?
+  status         String    @default("ACTIVE")
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  @@index([key])
+  @@index([category])
+  @@map("settings")
+}
+
+// 9. Audit Logs Table
+model AuditLog {
+  id          String   @id @default(uuid())
+  user_id     String?
+  action      String
+  ip_address  String?
+  details     String?
+  created_at  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
