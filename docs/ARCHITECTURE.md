@@ -7,7 +7,7 @@
    - Helmet HTTP headers
    - CORS policy configuration
    - Zod request body validation
-   - Parameterized database queries via Prisma ORM
+   - Parameterized database queries via Supabase JS Client
    - No stack traces or SQL internal errors exposed to clients
 
 ---

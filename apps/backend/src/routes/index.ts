@@ -1,11 +1,17 @@
 import { Router } from 'express';
-import { AuthController, OrderController, MealController, PaymentController, CanteenController } from '../controllers';
-import { authenticateJwt, authorizeRoles, validateRequest } from '../middlewares/auth.middleware';
-import { LoginSchema, RegisterStudentSchema, CreateOrderSchema, CreateMealSchema } from '../validation/schemas';
-import { UserRole, sendSuccess } from '../constants';
-
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { 
+  AuthController, OrderController, MealController, PaymentController, 
+  CanteenController, CollegeController, CategoryController, AdminController, 
+  CartController, DepartmentController, AcademicYearController, 
+  CanteenAccountController, StudentController, AuditLogController, UploadController 
+} from '../controllers';
+import { validateRequest, authenticateJwt, authorizeRoles } from '../middlewares/auth.middleware';
+import { 
+  LoginSchema, GoogleAuthSchema, RegisterStudentSchema, CreateOrderSchema, 
+  CreateCanteenSchema, CreateCanteenAccountSchema, CreateCollegeSchema, 
+  CreateDepartmentSchema, CreateAcademicYearSchema 
+} from '../validation/schemas';
+import { sendSuccess } from '../constants';
 
 const apiRouter = Router();
 
@@ -15,30 +21,91 @@ apiRouter.get('/health', (req, res) => {
     status: 'UP',
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.floor(process.uptime()),
-    version: 'v1.0.0-MVP'
+    version: 'v3.6.04'
   });
 });
 
 // ─── Authentication Routes ────────────────────────────────────────────────────
+// Multi-portal authentication
 apiRouter.post('/api/v1/auth/login', validateRequest(LoginSchema), AuthController.login);
-apiRouter.post('/api/v1/auth/register-student', validateRequest(RegisterStudentSchema), AuthController.registerStudent);
+apiRouter.post('/api/auth/login', validateRequest(LoginSchema), AuthController.login);
 
-// ─── Meals Routes (DB-connected) ─────────────────────────────────────────────
-// Get meals for a specific canteen or all meals
+apiRouter.post('/api/v1/auth/google', validateRequest(GoogleAuthSchema), AuthController.googleAuth);
+apiRouter.post('/api/auth/google', validateRequest(GoogleAuthSchema), AuthController.googleAuth);
+
+apiRouter.post('/api/v1/auth/register-student', validateRequest(RegisterStudentSchema), AuthController.registerStudent);
+apiRouter.post('/api/auth/register-student', validateRequest(RegisterStudentSchema), AuthController.registerStudent);
+
+apiRouter.get('/api/v1/auth/me', authenticateJwt, AuthController.me);
+apiRouter.get('/api/auth/me', authenticateJwt, AuthController.me);
+
+// ─── Image Upload (Cloudinary) ────────────────────────────────────────────────
+apiRouter.post('/api/v1/upload', UploadController.uploadImage);
+apiRouter.post('/api/upload', UploadController.uploadImage);
+
+// ─── College Routes ───────────────────────────────────────────────────────────
+apiRouter.get('/api/v1/colleges', CollegeController.getAll);
+apiRouter.get('/api/colleges', CollegeController.getAll);
+apiRouter.post('/api/v1/colleges', validateRequest(CreateCollegeSchema), CollegeController.create);
+apiRouter.put('/api/v1/colleges/:id', CollegeController.update);
+apiRouter.delete('/api/v1/colleges/:id', CollegeController.delete);
+apiRouter.get('/api/v1/colleges/:collegeId/departments', CollegeController.getDepartments);
+apiRouter.get('/api/v1/colleges/:collegeId/academic-years', CollegeController.getAcademicYears);
+
+// ─── Department Routes ───────────────────────────────────────────────────────
+apiRouter.get('/api/v1/departments', DepartmentController.getAll);
+apiRouter.post('/api/v1/departments', validateRequest(CreateDepartmentSchema), DepartmentController.create);
+apiRouter.put('/api/v1/departments/:id', DepartmentController.update);
+apiRouter.delete('/api/v1/departments/:id', DepartmentController.delete);
+
+// ─── Academic Year Routes ────────────────────────────────────────────────────
+apiRouter.get('/api/v1/academic-years', AcademicYearController.getAll);
+apiRouter.post('/api/v1/academic-years', validateRequest(CreateAcademicYearSchema), AcademicYearController.create);
+apiRouter.put('/api/v1/academic-years/:id', AcademicYearController.update);
+apiRouter.delete('/api/v1/academic-years/:id', AcademicYearController.delete);
+
+// ─── Canteen Routes ───────────────────────────────────────────────────────────
+apiRouter.get('/api/v1/canteens', CanteenController.getAll);
+apiRouter.get('/api/canteens', CanteenController.getAll);
+apiRouter.get('/api/v1/canteens/:canteenId', CanteenController.getById);
+apiRouter.post('/api/v1/canteens', validateRequest(CreateCanteenSchema), CanteenController.create);
+apiRouter.put('/api/v1/canteens/:canteenId', CanteenController.update);
+apiRouter.post('/api/v1/canteens/:canteenId/setup', CanteenController.setupProfile);
+apiRouter.delete('/api/v1/canteens/:canteenId', CanteenController.delete);
+apiRouter.get('/api/v1/canteens/:canteenId/orders', CanteenController.getOrders);
+
+// ─── Canteen Account Routes (Admin Managed) ──────────────────────────────────
+apiRouter.get('/api/v1/admin/canteen-accounts', CanteenAccountController.getAll);
+apiRouter.post('/api/v1/admin/canteen-accounts', validateRequest(CreateCanteenAccountSchema), CanteenAccountController.create);
+apiRouter.put('/api/v1/admin/canteen-accounts/:id/status', CanteenAccountController.updateStatus);
+
+// ─── Student Management Routes (Admin Managed) ───────────────────────────────
+apiRouter.get('/api/v1/admin/students', StudentController.getAll);
+apiRouter.put('/api/v1/admin/students/:id/status', StudentController.updateStatus);
+
+// ─── Audit Log Routes ────────────────────────────────────────────────────────
+apiRouter.get('/api/v1/admin/audit-logs', AuditLogController.getLogs);
+
+// ─── Food Category Routes ─────────────────────────────────────────────────────
+apiRouter.get('/api/v1/canteens/:canteenId/categories', CategoryController.getByCanteen);
+apiRouter.post('/api/v1/categories', CategoryController.create);
+apiRouter.put('/api/v1/categories/:id', CategoryController.update);
+apiRouter.delete('/api/v1/categories/:id', CategoryController.delete);
+
+// ─── Meals Routes ─────────────────────────────────────────────────────────────
 apiRouter.get('/api/v1/meals', MealController.getMenu);
 apiRouter.get('/api/v1/meals/all', MealController.getAllMeals);
-
-// Create / Update / Delete meal (canteen staff)
 apiRouter.post('/api/v1/meals', MealController.createMeal);
 apiRouter.put('/api/v1/meals/:mealId', MealController.updateMeal);
 apiRouter.delete('/api/v1/meals/:mealId', MealController.deleteMeal);
 
-// ─── Canteen Routes (DB-connected) ───────────────────────────────────────────
-apiRouter.get('/api/v1/canteens', CanteenController.getAll);
-apiRouter.get('/api/v1/canteens/:canteenId', CanteenController.getById);
-apiRouter.get('/api/v1/canteens/:canteenId/orders', CanteenController.getOrders);
+// ─── Cart Routes ──────────────────────────────────────────────────────────────
+apiRouter.get('/api/v1/cart/:studentId', CartController.getCart);
+apiRouter.post('/api/v1/cart/items', CartController.addItem);
+apiRouter.put('/api/v1/cart/items/:cartItemId', CartController.updateQty);
+apiRouter.delete('/api/v1/cart/:studentId', CartController.clear);
 
-// ─── Order Routes (DB-connected) ─────────────────────────────────────────────
+// ─── Order Routes ─────────────────────────────────────────────────────────────
 apiRouter.post('/api/v1/orders', validateRequest(CreateOrderSchema), OrderController.placeOrder);
 apiRouter.get('/api/v1/orders/:orderId', OrderController.getOrder);
 
@@ -46,37 +113,8 @@ apiRouter.get('/api/v1/orders/:orderId', OrderController.getOrder);
 apiRouter.post('/api/v1/payment/cashfree/create', PaymentController.createCashfreeOrder);
 apiRouter.post('/api/v1/payment/cashfree/webhook', PaymentController.handleWebhook);
 
-// ─── Admin Dashboard (Protected, DB-connected) ───────────────────────────────
-apiRouter.get('/api/v1/admin/dashboard', authenticateJwt, authorizeRoles(UserRole.SUPER_ADMIN), async (req, res) => {
-  try {
-    const [collegesCount, studentsCount, canteenCount, totalRevenueAggregate, recentOrders] = await Promise.all([
-      prisma.college.count(),
-      prisma.user.count({ where: { role: 'STUDENT' } }),
-      prisma.canteen.count(),
-      prisma.order.aggregate({
-        _sum: { paid_amount: true },
-        where: { payment_status: 'SUCCESS' }
-      }),
-      prisma.order.findMany({
-        take: 10,
-        orderBy: { created_at: 'desc' },
-        include: { student: { select: { name: true, email: true } } }
-      })
-    ]);
-
-    return sendSuccess(res, 'Super Admin Dashboard Access Granted', {
-      collegesCount,
-      studentsCount,
-      canteenCount,
-      totalRevenue: totalRevenueAggregate._sum.paid_amount || 0,
-      recentOrders
-    });
-  } catch (err) {
-    console.error('Admin dashboard DB error:', err);
-    return sendSuccess(res, 'Super Admin Dashboard', {
-      collegesCount: 0, studentsCount: 0, canteenCount: 0, totalRevenue: 0, recentOrders: []
-    });
-  }
-});
+// ─── Admin Management Routes ──────────────────────────────────────────────────
+apiRouter.post('/api/v1/admin/canteen-owners', AdminController.createCanteenOwner);
+apiRouter.get('/api/v1/admin/dashboard', AdminController.getDashboard);
 
 export default apiRouter;

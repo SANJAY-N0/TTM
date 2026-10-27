@@ -2,8 +2,10 @@ import { Response } from 'express';
 
 export enum UserRole {
   STUDENT = 'STUDENT',
-  CANTEEN = 'CANTEEN',
-  SUPER_ADMIN = 'SUPER_ADMIN'
+  CANTEEN_OWNER = 'CANTEEN_OWNER',
+  CANTEEN = 'CANTEEN_OWNER',
+  ADMIN = 'ADMIN',
+  SUPER_ADMIN = 'ADMIN'
 }
 
 export enum OrderStatus {
@@ -32,7 +34,7 @@ export const sendSuccess = <T>(res: Response, message: string, data?: T, statusC
   const payload: ApiResponse<T> = {
     success: true,
     message,
-    data: data || {}
+    data: data ?? ({} as unknown as T)
   };
   return res.status(statusCode).json(payload);
 };
